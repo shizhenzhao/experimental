@@ -54,7 +54,7 @@ def DataBatch(data, stime, delta):
   yield batch
 
 def main(argv):
-  time_period = [datetime.datetime(2018, 4, 16, 21, 0, 0), datetime.datetime(2018, 7, 17, 21, 0, 0)]
+  time_period = [datetime.datetime(2018, 4, 16, 21, 0, 0), datetime.datetime(2018, 9, 16, 21, 0, 0)]
   data = LoadData(time_period[0], time_period[1])
   # data = [EvRecord('1', datetime.datetime(2018, 4, 18, 0, 0, 0), datetime.datetime(2018, 4, 18, 1, 0, 0), 20, datetime.datetime(2018, 4, 18, 0, 30, 0), '121'), EvRecord('2', datetime.datetime(2018, 4, 18, 0, 30, 0), datetime.datetime(2018, 4, 18, 2, 0, 0), 30, datetime.datetime(2018, 4, 18, 1, 0, 0), '122'), EvRecord('3', datetime.datetime(2018, 4, 18, 1, 0, 0), datetime.datetime(2018, 4, 18, 3, 0, 0), 25, datetime.datetime(2018, 4, 18, 2, 0, 0), '123')]
 
