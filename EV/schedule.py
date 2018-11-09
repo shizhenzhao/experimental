@@ -74,10 +74,9 @@ class Scheduler:
     self.num_job = 0
 
   def AddEvJob(self, job_id, notify_time, arrival_time, end_time, demand, max_charging_rate):
-    assert notify_time == arrival_time
-    assert arrival_time >= self.current_time
+    assert notify_time >= self.current_time
     self.num_job += 1
-    self.current_time = arrival_time
+    self.current_time = notify_time
     self.all_jobs.append(EvJob(job_id, notify_time, arrival_time, end_time, demand, max_charging_rate))
     self.original_jobs.append(EvJob(job_id, notify_time, arrival_time, end_time, demand, max_charging_rate))
 
@@ -301,7 +300,7 @@ class GreedyScheduler(Scheduler):
     for job in self.all_jobs:
       assert job.end_time > schedule_time
       total_max_charging_rate += job.max_charging_rate
-    self.peak_history[schedule_time] = min(total_max_charging_rate, 1.4 * peak_charging_rate)
+    self.peak_history[schedule_time] = min(total_max_charging_rate, peak_charging_rate)
     self.last_schedule_time = schedule_time
 
   def Name(self):

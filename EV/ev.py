@@ -13,9 +13,10 @@ from ortools.linear_solver import pywraplp
 FLAGS = flags.FLAGS
 Scheduler = schedule.Scheduler
 
-EvRecord = collections.namedtuple('EvRecord', ['id','start_time','end_time', 'energy_charged_kwh', 'done_charging', 'location']) 
+EvRecord = collections.namedtuple('EvRecord', ['id', 'reserve_time', 'start_time','end_time', 'energy_charged_kwh', 'done_charging', 'location']) 
 
-flags.DEFINE_float('scale', 1.0, 'scaling factor')
+flags.DEFINE_float('scale', 1.05, 'scaling factor')
+flags.DEFINE_float('prob', 0.5, 'reserve probability')
 
 def ToDateTime(epoc_time_ms):
   epoc_time_s = float(epoc_time_ms) / 1000.0
@@ -26,6 +27,7 @@ def LoadData(start_time, end_time):
     number = next(data_file).strip()
     jsons = [json.loads(line) for line in data_file]
   records = []
+  sum = 0.0
   for line in jsons:
     record_start_time = ToDateTime(line['start']['$date']['$numberLong'])
     if record_start_time < start_time:
@@ -33,8 +35,16 @@ def LoadData(start_time, end_time):
     record_end_time = ToDateTime(line['end']['$date']['$numberLong'])
     if record_end_time > end_time:
       continue
-    records.append(EvRecord(line['_id']['$oid'], record_start_time, record_end_time, float(line['kWh_delivered']['$numberDouble']),
-			    ToDateTime(line['done_charging']['$date']['$numberLong']), line['space_number']))
+    sum += FLAGS.prob
+    if sum >= 1.0:
+      records.append(EvRecord(line['_id']['$oid'], record_start_time - datetime.timedelta(hours=3), record_start_time, record_end_time,
+                              float(line['kWh_delivered']['$numberDouble']),
+	   		      ToDateTime(line['done_charging']['$date']['$numberLong']), line['space_number']))
+      sum -= 1.0
+    else:
+      records.append(EvRecord(line['_id']['$oid'], record_start_time, record_start_time, record_end_time,
+                              float(line['kWh_delivered']['$numberDouble']),
+	   		      ToDateTime(line['done_charging']['$date']['$numberLong']), line['space_number']))
   records.sort(key=lambda record : record.start_time)
   return records
 
@@ -66,17 +76,18 @@ def main(argv):
     offline_schedulers = [schedule.OracleScheduler()]
     last_schedule_time = datetime.datetime.min
     schedule_slot = datetime.timedelta(minutes=15)
+    data.sort(key=lambda record : record.reserve_time)
     for record in data:
       max_charging_rate = record.energy_charged_kwh / ToHours(record.done_charging - record.start_time)
       for scheduler in continuous_schedulers:
-        scheduler.AddEvJob(record.id, record.start_time, record.start_time, record.end_time, record.energy_charged_kwh, max_charging_rate)
-        scheduler.Schedule(record.start_time)
+        scheduler.AddEvJob(record.id, record.reserve_time, record.start_time, record.end_time, record.energy_charged_kwh, max_charging_rate)
+        scheduler.Schedule(record.reserve_time)
       for scheduler in slotted_schedulers + offline_schedulers:
-        scheduler.AddEvJob(record.id, record.start_time, record.start_time, record.end_time, record.energy_charged_kwh, max_charging_rate)
-      if record.start_time > last_schedule_time + schedule_slot:
+        scheduler.AddEvJob(record.id, record.reserve_time, record.start_time, record.end_time, record.energy_charged_kwh, max_charging_rate)
+      if record.reserve_time > last_schedule_time + schedule_slot:
         for scheduler in slotted_schedulers:
-          scheduler.Schedule(record.start_time)
-        last_schedule_time = record.start_time
+          scheduler.Schedule(record.reserve_time)
+        last_schedule_time = record.reserve_time
     for scheduler in offline_schedulers:
       scheduler.Schedule(datetime.datetime.max)
     Scheduler.Plot(continuous_schedulers + slotted_schedulers + offline_schedulers, time_period, False)
